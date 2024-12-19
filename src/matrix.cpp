@@ -4,11 +4,12 @@
 
 Adjacency::Adjacency(Adjacency::index_t count) : m_count(count)
 {
-    m_rowSize = (count + STORAGE_T_BITS - 1) / STORAGE_T_BITS; // divide to ceiling
-
-
-    size_t size = m_rowSize * m_count;
-    m_data = new storage_t[size];
+    
+    m_data = new storage_t* [m_count];
+	for(int i = 0; i < m_count; i++){
+		m_data[i] = new storage_t [m_count]
+		m_data[i][0] = 0;
+	}
 }
 
 Adjacency::~Adjacency()
@@ -37,13 +38,30 @@ Adjacency Adjacency::create(const char* filename)
     // read the number of vertices
     storage_t data;
     f.read(reinterpret_cast<char*>(&data), STORAGE_T_BYTES);
+	storage_t matrix_size = data;
 
-    Adjacency adj((index_t) data);
+    Adjacency adj((index_t) matrix_size);
 
     // iterate over the data
-    for (size_t i = 0 ; i < adj.m_count * adj.m_rowSize ; ++i) {
-        f.read(reinterpret_cast<char*>(adj.m_data + i), STORAGE_T_BYTES);
+	storage_t col_counter =0;
+	storage_t row = 0,old_row = 0;
+	storage_t col = 0;
+	while (f.read(reinterpret_cast<char*>(&data), sizeof(STORAGE_T_BYTES))) {
+		old_row = row;
+		ol_col = col;
+		row = data / matrix_size;        // Extract row (0-based)
+        col = data % matrix_size;        // Extract column (0-based)
+		// While finding neighbors every row will be read until 0 is reached
+		// This will save resources
+		if(old_row != row){
+			adj.m_data[old_row][col_counter]=0;
+			col_counter = 0;
+		}
+		adj.m_data[row][col_counter]=col+1;
+		col_counter += 1;
     }
+	// after reacing the end of the file, the last 0 must be added to the end of the last written row
+	adj.m_data[row][col_counter]=0;
 
     f.close();
 

@@ -20,6 +20,7 @@ private:
     index_t m_count;
     size_t m_rowSize;
 
+    static constexpr size_t INDEX_T_BYTES = sizeof(index_t);
     static constexpr size_t STORAGE_T_BYTES = sizeof(storage_t);
     static constexpr size_t STORAGE_T_BITS  = sizeof(storage_t) * 8;
 
