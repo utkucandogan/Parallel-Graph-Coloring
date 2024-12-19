@@ -5,7 +5,7 @@
 #include <vector>
 #include <stdexcept>
 #include <immintrin.h>
-
+#include <iostream>
 class Neighbors;
 
 class Adjacency
@@ -16,7 +16,7 @@ public:
 private:
     using storage_t = uint32_t;
 
-    storage_t* m_data;
+    storage_t** m_data;
     index_t m_count;
     size_t m_rowSize;
 
@@ -24,29 +24,13 @@ private:
     static constexpr size_t STORAGE_T_BYTES = sizeof(storage_t);
     static constexpr size_t STORAGE_T_BITS  = sizeof(storage_t) * 8;
 
-    friend Neighbors;
 
-    Adjacency(index_t count);
+    Adjacency(index_t count,index_t maximum_number_elements);
 
 public:
     ~Adjacency();
-
+	storage_t* get_row(index_t row_number)const;
     index_t count() const;
-    Neighbors operator[](index_t row) const;
 
-    static Adjacency create(const char* filename);
-};
-
-class Neighbors
-{
-private:
-    Adjacency::storage_t* m_data;
-    size_t m_size;
-
-    friend Adjacency;
-
-    Neighbors(Adjacency::storage_t* data, size_t size);
-
-public:
-    std::vector<Adjacency::index_t> to_vector() const;
+    static Adjacency create(std::string filename);
 };
