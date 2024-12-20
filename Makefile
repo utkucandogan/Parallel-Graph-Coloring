@@ -1,9 +1,4 @@
-OUT ?= $(notdir $(CURDIR))
-ifeq ($(OS), Windows_NT)
-	OUT_EXT ?= .exe
-else
-	OUT_EXT ?=
-endif
+OUT ?= pgc.exe
 
 CXXFLAGS ?= -Wall -O0 -g -std=c++17
 
@@ -22,11 +17,19 @@ OBJS     := $(OBJS_C) $(OBJS_CPP)
 default: all
 
 clean:
-	rm -rf $(OBJ_DIR) $(OUT)$(OUT_EXT)
+	rm -rf $(OBJ_DIR) $(OUT)
 
-all: $(OUT)$(OUT_EXT)
+all: release
 
-./$(OUT)$(OUT_EXT): $(OBJS)
+debug: CXXFLAGS += -O0 -g -DDEBUG
+debug: executable
+
+release: CXXFLAGS += -O3
+release: executable
+
+executable: $(OUT)
+
+./$(OUT): $(OBJS)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c $(OBJ_DIR)
@@ -38,5 +41,5 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(OBJ_DIR)
 $(OBJ_DIR):
 	mkdir $(OBJ_DIR)
 
-.PHONY: all clean
-.PRECIOUS: ./$(OUT)$(OUT_EXT) $(OBJ_DIR)/%.o
+.PHONY: clean
+.PRECIOUS: ./$(OUT) $(OBJ_DIR)/%.o

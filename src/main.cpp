@@ -1,19 +1,23 @@
-#include "matrix.hpp"
+#include <iostream>
+
+#include "adjacency.hpp"
+#include "color.hpp"
+#include "sequential.hpp"
 
 int main(int argc, char* argv[])
 {
-	std::string filename = argv[1];
-    std::cout << "Hello world" << std::endl;
+    auto adj = Adjacency::create(argv[1]);
+    adj.print();
 
-    auto adj = Adjacency::create(filename);
-    for (size_t i = 0 ; i < adj.count() ; ++i) {
-		uint32_t* row_data =adj.get_row(i);
-		int row_counter = 0;
-		while(1){
-		if(row_data[row_counter] == 0)
-			break;
-        std::cout << "Row_Number:" << i + 1 << "Neighbor:" << row_data[row_counter] << "\n";
-		row_counter += 1;
-		}
+    std::cout << "\n";
+
+    ColorArray colors(adj.count(), adj.degree()+1);
+    color_sequential(adj, colors);
+    colors.print();
+
+    if (check_colors(adj, colors)) {
+        std::cout << "Coloring is done correctly.\n";
+    } else {
+        throw std::runtime_error("Coloring is done incorrectly!");
     }
 }

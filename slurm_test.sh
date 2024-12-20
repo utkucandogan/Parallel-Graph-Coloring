@@ -27,4 +27,4 @@
 #SBATCH --mail-user=<user_name>@ceng.metu.edu.tr
 
 # Launch the command/application
-mpirun ./a.out
+mpirun ./pgc.exe
