@@ -4,20 +4,25 @@
 #include "adjacency.hpp"
 #include "log.hpp"
 
+// Degree is the degree of the graph, count is the number of vertices
 Adjacency::Adjacency(Adjacency::index_t count, Adjacency::index_t degree) : m_count(count), m_degree(degree)
 {
+    // Create a list for each vertex that contains neighbor vertex indices
     m_data = new index_t* [m_count];
     for(size_t i = 0 ; i < m_count ; ++i) {
-        m_data[i] = new index_t [m_degree];
+        m_data[i] = new index_t [m_degree + 1];
+        // Initially the neighbor list is empty
         m_data[i][0] = END;
     }
 }
 
 Adjacency::~Adjacency()
 {
+    // Delete each vertex neighbor list
     for(size_t i = 0 ; i < m_count ; ++i) {
-        delete m_data[i];
+        delete[] m_data[i];
     }
+    // Delete the list of vertices
     delete[] m_data;
 }
 
@@ -49,7 +54,7 @@ Adjacency Adjacency::create(const char* filename)
         throw std::runtime_error("Couldn\'t open the file!");
     }
 
-    // read the number of vertices and max array size
+    // Read the number of vertices and max array size
     index_t vertexCount;
     index_t maxDegree;
 
@@ -61,7 +66,7 @@ Adjacency Adjacency::create(const char* filename)
 
     Adjacency adj(vertexCount, maxDegree);
 
-    // iterate over the data
+    // Iterate over the data
     index_t data;
 
     index_t col_counter = 0;
@@ -81,7 +86,7 @@ Adjacency Adjacency::create(const char* filename)
         adj.m_data[row][col_counter] = col;
         col_counter += 1;
     }
-    // after reacing the end of the file, the last 0 must be added to the end of the last written row
+    // After reaching the end of the file, the last 0 must be added to the end of the last written row
     adj.m_data[row][col_counter] = END;
 
     f.close();
