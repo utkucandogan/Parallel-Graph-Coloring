@@ -17,6 +17,7 @@ void color_vertices_dyanmic(uint32_t* p_adjacency_array, uint32_t* color_array, 
     uint32_t neighbour_offset = 0;
     //For each vertex look at all the neighbours, forbid their colors select min unforbid color
     for (size_t vertex_index = 0; vertex_index < vertex_count; ++vertex_index) {
+        // Read the local vertex index from the set of vertices with collisions
         uint32_t vertex = p_collision_array[vertex_index];
         //Update offset to the next neighbour, not optimized can definitely be a better solution
         neighbour_offset = vertex * max_degree;
@@ -43,7 +44,7 @@ void color_vertices_dyanmic(uint32_t* p_adjacency_array, uint32_t* color_array, 
 
 
 //Colors the specified number of vertices using a dynamic array
-bool check_collisions(uint32_t* p_adjacency_array, uint32_t* color_array, uint32_t* p_collision_array,
+bool check_collisions(uint32_t* p_adjacency_array, uint32_t* color_array, uint32_t*& p_collision_array,
     uint32_t p_vertex_start_index, uint32_t &p_vertex_count, uint32_t max_degree) {
     uint32_t neighbour;
     uint32_t* p_new_collision_array = (uint32_t*)malloc(p_vertex_count * sizeof(uint32_t));
@@ -68,29 +69,25 @@ bool check_collisions(uint32_t* p_adjacency_array, uint32_t* color_array, uint32
                 break;
             // a collision has been detected
             else if (color_array[neighbour] == color_array[p_vertex_start_index + vertex]){
-                // If the sum is even and index is bigger than neighbour or sum is odd and index is smaller
-                // This processes adds the collision, o.w. other process adds it since indexes will be swapped
-                id_sum = neighbour + p_vertex_start_index + vertex;
-                if (id_sum % 2 == 0) {
-                    if ((p_vertex_start_index + vertex) > neighbour)
-                        p_new_collision_array[p_new_vertex_count++] = vertex;
-
+                // If the vertex is bigger add, o.w. do not add but stop all the time
+                if ((p_vertex_start_index + vertex) > neighbour) {
+                    p_new_collision_array[p_new_vertex_count++] = vertex;
                 }
-                else {
-                    if ((p_vertex_start_index + vertex) < neighbour)
-                        p_new_collision_array[p_new_vertex_count++] = vertex;
-                }
+                // Avoids duplicate addition of the same vertex if it has multiple collisions
+                break;
             }
         }
     }
     //Update the number of vertices to be handled and their indexes
-    p_new_collision_array[p_new_vertex_count] = UINT32_MAX;
+    if(p_new_vertex_count<p_vertex_count)
+        p_new_collision_array[p_new_vertex_count] = UINT32_MAX;
     p_vertex_count = p_new_vertex_count;
     free(p_collision_array);
     p_collision_array = p_new_collision_array;
     return true;
 }
 
+//Allocates and initalizes all the necessary variables
 bool allocate_and_initialize(
     uint32_t** p_forbidden_colors,
     uint32_t** p_collision_array,
@@ -155,9 +152,10 @@ bool allocate_and_initialize(
 }
 
 
+// Code to generate adjacency array might not be 100% correct
 uint32_t* generate_adjency_array(uint32_t max_degree, uint32_t vertex_count) {
     // Initialize the adjacency matrix with zeros (no edges)
-    uint32_t* matrix = new uint32_t[max_degree * vertex_count]();
+    uint32_t* matrix = new uint32_t[max_degree * vertex_count];
 
     // Initialize all entries to UINT32_MAX to indicate no connection
     for (uint32_t idx = 0; idx < max_degree * vertex_count; ++idx) {
@@ -224,6 +222,7 @@ uint32_t* generate_adjency_array(uint32_t max_degree, uint32_t vertex_count) {
 }
 
 
+//Prints the adjacency array
 void print_adjency_array(uint32_t* matrix, uint32_t vertex_count, uint32_t max_degree) {
     for (uint32_t i = 0; i < vertex_count; ++i) {
         printf("vertex %d: ", i);

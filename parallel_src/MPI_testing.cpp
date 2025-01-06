@@ -24,12 +24,10 @@ int main(int argc, char* argv[])
         return 1;
     }*/
 
-    // Wait for user input to continue
-    //std::cout << "Press Enter to continue after rank " << rank << " setup." << std::endl;
-    //std::cin.get();  // Wait for user to press Enter
 
     // p_vertex_count indicates how many vertices each process will handle
     uint32_t p_vertex_count = vertex_count / size;
+    // Used for MPI functions since the other one is updated throughout the code
     uint32_t p_vertex_count_init = vertex_count / size;
     // Start of the vertices according to each processes
     uint32_t p_vertex_start_index = rank * p_vertex_count;
@@ -39,7 +37,6 @@ int main(int argc, char* argv[])
     uint32_t* p_adjacency_array = NULL;
     uint32_t* color_array = NULL;
 
-    printf("Initializing data structures...\n");
     if (!allocate_and_initialize(&p_forbidden_colors,
         &p_collision_array,
         &p_adjacency_array,
@@ -52,7 +49,7 @@ int main(int argc, char* argv[])
         MPI_Finalize();
         return EXIT_FAILURE;
     }
-    printf("Initialization done!\n");
+
     // Rank 0 allocates and initializes the vertex array
     uint32_t* adjacency_array = NULL;
     if (rank == 0) {
@@ -84,10 +81,10 @@ int main(int argc, char* argv[])
     // Now it's safe to free adjacency_array on rank 0
     if (rank == 0) {
 #if DEBUG
-        printf("Adjency array: \n");
-        print_adjency_array(adjacency_array, vertex_count, max_degree);
+        //printf("Adjency array: \n");
+        //print_adjency_array(adjacency_array, vertex_count, max_degree);
 #endif // DEBUG
-        free(adjacency_array);
+        delete [] adjacency_array;
         adjacency_array = NULL;
     }
 #if DEBUG
@@ -99,7 +96,7 @@ int main(int argc, char* argv[])
     printf("\n");
 #endif // DEBUG,
     uint32_t global_collision_flag = 1;
-    //while (global_collision_flag) {
+    while (global_collision_flag) {
         if(p_vertex_count)
             color_vertices_dyanmic(p_adjacency_array, color_array, p_forbidden_colors, p_collision_array, p_vertex_start_index, p_vertex_count, max_degree);
 
@@ -116,11 +113,11 @@ int main(int argc, char* argv[])
         // --------------------------------------------
         // Print out the final color array on each rank
         // --------------------------------------------
-        printf("Rank %d color_array: ", rank);
-        for (size_t i = 0; i < vertex_count; i++) {
-            printf("%u ", color_array[i]);
-        }
-        printf("\n");
+        //printf("Rank %d color_array: ", rank);
+        //for (size_t i = 0; i < vertex_count; i++) {
+        //    printf("%u ", color_array[i]);
+        //}
+        //printf("\n");
         // --------------------------------------------
 #endif // DEBUG
         if(p_vertex_count)
@@ -132,7 +129,7 @@ int main(int argc, char* argv[])
         // --------------------------------------------
         printf("Rank %d collision count %d: ", rank, p_vertex_count);
         for (size_t i = 0; i < p_vertex_count; i++) {
-            printf("%u ", p_collision_array[i]);
+            printf("%u ", p_collision_array[i] + p_vertex_start_index);
         }
         printf("\n");
         // --------------------------------------------
@@ -147,7 +144,7 @@ int main(int argc, char* argv[])
             MPI_MAX,        // operation (max will be 1 if any rank is 1)
             MPI_COMM_WORLD
         );
-    //}
+    }
     //If global_collision_flag==0 => no collisions on any rank and loop is exited
     if (rank == 0) {
         printf("No collisions found; coloring is complete.\n");
