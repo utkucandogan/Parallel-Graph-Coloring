@@ -8,9 +8,9 @@
 // Variable starting with p are process specific variables
 int main(int argc, char* argv[])
 {
-    uint32_t vertex_count = 32;
+    uint32_t vertex_count = 328;
     uint32_t max_degree = 4;
-    bool use_broadcast = false;
+    bool use_broadcast = true;
     MPI_Init(&argc, &argv);
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -104,7 +104,8 @@ int main(int argc, char* argv[])
     uint32_t global_collision_flag = 1;
     uint32_t itertion_count = 0;
     while (global_collision_flag) {
-        MPI_Barrier(MPI_COMM_WORLD);
+#ifndef broadcast
+        // MPI_Barrier(MPI_COMM_WORLD);
         MPI_Allgather(
             MPI_IN_PLACE, // "in-place" send buffer
             0,            // ignored
@@ -124,50 +125,52 @@ int main(int argc, char* argv[])
             if(operating_processes_array[i]==1)
                 active_rank +=1;
         }
-        
-        //printf("entering process broadcast  rank :%d iteration :%d\n",rank,itertion_count);
+#endif      
         if(p_vertex_count){
             color_vertices_dyanmic(p_adjacency_array, color_array,process_array, p_forbidden_colors, p_collision_array, p_vertex_start_index,p_vertex_count, constant_vertex_count, max_degree);
             int rank_counter =0;
-            for (int i = 0; i < size; i++) {
-                
-                if(operating_processes_array[i] == 0){
-                    continue;
+#ifndef broadcast
+                // Every active process will send its part of the color array to the needing processes
+                for (int i = 0; i < size; i++) {
+                    if(operating_processes_array[i] == 0){
+                        continue;
+                    }
+                    int membership = ((process_array[i]==1) || rank == i )? 1 : MPI_UNDEFINED;
+                    int master_rank = UINT32_MAX;
+                    int sub_rank=UINT32_MAX;
+                    // MPI_Barrier(active_com);
+                    // create a communication group 
+                    MPI_Comm sub_comm;
+                    MPI_Comm_split(active_com, membership, rank, &sub_comm);
+                    if(membership == 1)
+                        MPI_Comm_rank(sub_comm, &sub_rank);
+                    if(i == rank)
+                        master_rank = sub_rank;
+                    // Broadcast the master of the new communication to other processes
+                    MPI_Bcast(&master_rank, 1, MPI_INT, rank_counter, active_com);
+                    rank_counter +=1;
+                    if(membership==1){
+                        MPI_Bcast(&color_array[i*constant_vertex_count], constant_vertex_count, MPI_INT, master_rank, sub_comm);
+                        process_array[i]=0;
+                    }
+                    // MPI_Barrier(active_com);
+                    // MPI_Comm_free(&sub_comm);
                 }
-                int membership = ((process_array[i]==1) || rank == i )? 1 : MPI_UNDEFINED;
-                int master_rank = UINT32_MAX;
-                int sub_rank=UINT32_MAX;
-                MPI_Barrier(active_com);
-                MPI_Comm sub_comm;
-                //printf("reached the barrier  rank :%d iteration := %d membership :%d\n",rank,i,membership);
-                MPI_Comm_split(active_com, membership, rank, &sub_comm);
-                if(membership == 1)
-                    MPI_Comm_rank(sub_comm, &sub_rank);
-                if(i == rank)
-                    master_rank = sub_rank;
-                MPI_Bcast(&master_rank, 1, MPI_INT, rank_counter, active_com);
-                rank_counter +=1;
-                int data = 0;
-                if(i == rank)
-                    data=100/(i+1);
-                if(membership==1){
-                    MPI_Bcast(&color_array[i*constant_vertex_count], constant_vertex_count, MPI_INT, master_rank, sub_comm);
-                    printf("itration :%d srank %d rank %d need data:= %d\n", i,sub_rank,rank ,color_array[i*constant_vertex_count]);
-                    process_array[i]=0;
-                }
-                MPI_Barrier(active_com);
-                //MPI_Comm_free(&sub_comm);
-            }
+            
+#endif
         }
-        MPI_Allgather(
-            MPI_IN_PLACE, // "in-place" send buffer
-            0,            // ignored
-            MPI_DATATYPE_NULL, // ignored
-            color_array, // receive buffer (must have N=local_vertex_count*size capacity)
-            p_vertex_count_init,      // how many elements each rank contributes
-            MPI_UINT32_T,
-            MPI_COMM_WORLD
-        );
+#if broadcast
+            MPI_Allgather(
+                        MPI_IN_PLACE, // "in-place" send buffer
+                        0,            // ignored
+                        MPI_DATATYPE_NULL, // ignored
+                        color_array, // receive buffer (must have N=local_vertex_count*size capacity)
+                        p_vertex_count_init,      // how many elements each rank contributes
+                        MPI_UINT32_T,
+                        MPI_COMM_WORLD
+                    );
+#endif
+
 #if DEBUG
         // --------------------------------------------
         // Print out the final color array on each rank
@@ -194,7 +197,7 @@ int main(int argc, char* argv[])
         // --------------------------------------------
 #endif // DEBUG
         
-        // 5) Use an all-reduce to see if *any* rank has a collision
+        // 5) Use an all-reduce to see if any rank has a collision
         MPI_Allreduce(
             &p_vertex_count,    // send buffer
             &global_collision_flag,   // receive buffer
