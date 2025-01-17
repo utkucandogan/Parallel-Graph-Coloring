@@ -8,8 +8,8 @@
 // Variable starting with p are process specific variables
 int main(int argc, char* argv[])
 {
-    uint32_t vertex_count = 328;
-    uint32_t max_degree = 4;
+    uint32_t vertex_count;
+    uint32_t max_degree;
     bool use_broadcast = true;
     MPI_Init(&argc, &argv);
     int rank, size;
@@ -25,19 +25,37 @@ int main(int argc, char* argv[])
     }*/
 
     // p_vertex_count indicates how many vertices each process will handle
-    uint32_t p_vertex_count = vertex_count / size;
-    uint32_t constant_vertex_count = vertex_count / size;
+    uint32_t p_vertex_count;
     // Used for MPI functions since the other one is updated throughout the code
-    uint32_t p_vertex_count_init = vertex_count / size;
+    uint32_t p_vertex_count_init;
     // Start of the vertices according to each processes
-    uint32_t p_vertex_start_index = rank * p_vertex_count;
+    uint32_t p_vertex_start_index;
 
     uint32_t* p_forbidden_colors = NULL;
     uint32_t* p_collision_array = NULL;
     uint32_t* p_adjacency_array = NULL;
+    uint32_t* p_adjacency_array_test = NULL;
     uint32_t* color_array = NULL;
     uint32_t* operating_processes_array = NULL;
     uint32_t* process_array = NULL; // hol which process needs which data
+    uint32_t* adjacency_array = NULL;
+
+    // read input
+    if (rank == 0) {
+        adjacency_array = read_input(argv[1],&vertex_count,&max_degree);
+        // adjacency_array = generate_adjency_array(max_degree, vertex_count);
+        printf("size :%d  vertex_count:%d, max_degree:=%d\n",size,vertex_count,max_degree);
+    }
+    // broacast input matrix parameters
+    MPI_Bcast(&max_degree, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    // printf("bcast done rank:%d max_degree:%d\n",rank,max_degree);
+    MPI_Bcast(&vertex_count, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    // printf("bcast done rank:%d vertex_count:%d\n",rank,vertex_count);
+
+    // initialize variables according to inputs
+    p_vertex_count = vertex_count / size;
+    p_vertex_count_init = vertex_count / size;
+    p_vertex_start_index = rank * p_vertex_count;
 
     if (!allocate_and_initialize(&p_forbidden_colors,
         &p_collision_array,
@@ -56,19 +74,7 @@ int main(int argc, char* argv[])
     }
 
     // Rank 0 allocates and initializes the vertex array
-    uint32_t* adjacency_array = NULL;
-    if (rank == 0) {
-        adjacency_array = generate_adjency_array(max_degree, vertex_count);
-        printf("size :%d  vertex_count:%d, max_degree:=%d pvertex_count:%d \n",size,vertex_count,max_degree,p_vertex_count);
-    }
 
-    // Scatter the big array to all processes
-    //  - On rank 0, MPI_Scatter will send the appropriate chunk to each rank
-    //  - On other ranks, MPI_Scatter will receive that chunk
-    // The signature:
-    //   MPI_Scatter(sendbuf, sendcount, sendtype,
-    //               recvbuf, recvcount, recvtype,
-    //               root, comm)
     MPI_Scatter(
         adjacency_array,     // send buffer (only significant at root=0)
         p_vertex_count_init * max_degree,       // how many elements to send to each rank
@@ -79,10 +85,6 @@ int main(int argc, char* argv[])
         0,             // root (which holds the big array)
         MPI_COMM_WORLD
     );
-
-    // After scatter, each rank has its own slice in p_adjacency_array
-    // For example, rank 0 has elements [0,1,2,3],
-    // rank 1 has [4,5,6,7], rank 2 has [8,9,10,11], and rank 3 has [12,13,14,15].
 
     // Now it's safe to free adjacency_array on rank 0
     if (rank == 0) {
@@ -101,6 +103,7 @@ int main(int argc, char* argv[])
     }
     printf("\n");
 #endif // DEBUG,
+    MPI_Barrier(MPI_COMM_WORLD);
     uint32_t global_collision_flag = 1;
     uint32_t itertion_count = 0;
     while (global_collision_flag) {
@@ -115,9 +118,13 @@ int main(int argc, char* argv[])
             MPI_UINT32_T,
             MPI_COMM_WORLD
         );
+
+        
         int active_process = operating_processes_array[rank] == 1 ? 1 :MPI_UNDEFINED;
         MPI_Comm active_com;
         MPI_Comm_split(MPI_COMM_WORLD, active_process, rank, &active_com);
+
+
         int active_rank=0;
         for(int i =0 ; i < size ; i ++){
             if(i == rank)
@@ -126,8 +133,10 @@ int main(int argc, char* argv[])
                 active_rank +=1;
         }
 #endif      
+
+
         if(p_vertex_count){
-            color_vertices_dyanmic(p_adjacency_array, color_array,process_array, p_forbidden_colors, p_collision_array, p_vertex_start_index,p_vertex_count, constant_vertex_count, max_degree);
+            color_vertices_dyanmic(p_adjacency_array, color_array,process_array, p_forbidden_colors, p_collision_array, p_vertex_start_index,p_vertex_count, p_vertex_count_init, max_degree);
             int rank_counter =0;
 #ifndef broadcast
                 // Every active process will send its part of the color array to the needing processes
@@ -150,7 +159,7 @@ int main(int argc, char* argv[])
                     MPI_Bcast(&master_rank, 1, MPI_INT, rank_counter, active_com);
                     rank_counter +=1;
                     if(membership==1){
-                        MPI_Bcast(&color_array[i*constant_vertex_count], constant_vertex_count, MPI_INT, master_rank, sub_comm);
+                        MPI_Bcast(&color_array[i*p_vertex_count_init], p_vertex_count_init, MPI_INT, master_rank, sub_comm);
                         process_array[i]=0;
                     }
                     // MPI_Barrier(active_com);

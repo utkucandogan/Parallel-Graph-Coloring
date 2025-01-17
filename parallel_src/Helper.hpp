@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <algorithm>
 #include <random>
@@ -266,4 +267,40 @@ void print_adjency_array(uint32_t* matrix, uint32_t vertex_count, uint32_t max_d
         }
         printf("\n");
     }
+}
+// Read input file
+// file is designed such that first read data is vertex count
+// second is matrix depth, the rest are vertex_count*matrix_depth number of adjaency data
+uint32_t* read_input(const char* filename,uint32_t* vertex_count,uint32_t* max_degree)
+{
+    uint32_t* matrix = NULL;
+    std::ifstream f(filename, std::ios::binary);
+    if (!f.is_open()) {
+        throw std::runtime_error("Couldn\'t open the file!");
+    }
+
+    // Read the number of vertices and max array size
+
+
+    f.read(reinterpret_cast<char*>(vertex_count), sizeof(uint32_t));
+    f.read(reinterpret_cast<char*>(max_degree), sizeof(uint32_t));
+    uint32_t total_size=(*vertex_count)*(*max_degree);
+    matrix = (uint32_t*)malloc(total_size * sizeof(uint32_t));
+    printf("matrix size :%d max_degree:%d\n",*vertex_count,*max_degree);
+    uint32_t data;
+    uint32_t col_counter = 0;
+    uint32_t row = 0, old_row = 0;
+    uint32_t col = 0;
+
+    uint32_t location_counter = 0;
+    while (f.read(reinterpret_cast<char*>(&data), sizeof(uint32_t))) {
+        old_row = row;
+        matrix[location_counter] = data;
+        if(location_counter == (total_size-1))
+            break;
+        location_counter += 1;
+    }
+
+    f.close();
+    return matrix;
 }
