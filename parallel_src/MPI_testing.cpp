@@ -4,7 +4,7 @@
 #include "Helper.hpp"
 #include <iostream>
 
-#define DEBUG 1
+#define DEBUG 0
 // Variable starting with p are process specific variables
 int main(int argc, char* argv[])
 {
@@ -95,6 +95,11 @@ int main(int argc, char* argv[])
         delete [] adjacency_array;
         adjacency_array = NULL;
     }
+
+    // measure start time
+    MPI_Barrier(MPI_COMM_WORLD);
+    double start_time = MPI_Wtime();
+
 #if DEBUG
     // Print out what each rank received
     printf("Rank %d received: ", rank);
@@ -222,11 +227,21 @@ int main(int argc, char* argv[])
         printf("No collisions found; coloring is complete.\n");
     }
     // Free memory
-    
+    // Synchronize after computation
+
     free(process_array);
     free(p_adjacency_array);
     free(color_array);
     free(p_forbidden_colors);
+    double end_time = MPI_Wtime();
+    double max_time;
+    double elapsed_time = end_time - start_time;
+    MPI_Reduce(&elapsed_time, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+
+    if (rank == 0) {
+        printf("Maximum elapsed time across all processes: %f seconds\n", max_time);
+    }
+
     MPI_Finalize();
     return 0;
 }
