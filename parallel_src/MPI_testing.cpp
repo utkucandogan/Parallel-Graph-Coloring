@@ -124,7 +124,7 @@ int main(int argc, char* argv[])
             MPI_COMM_WORLD
         );
 
-        
+
         int active_process = operating_processes_array[rank] == 1 ? 1 :MPI_UNDEFINED;
         MPI_Comm active_com;
         MPI_Comm_split(MPI_COMM_WORLD, active_process, rank, &active_com);
@@ -137,7 +137,7 @@ int main(int argc, char* argv[])
             if(operating_processes_array[i]==1)
                 active_rank +=1;
         }
-#endif      
+#endif
 
 
         if(p_vertex_count){
@@ -153,7 +153,7 @@ int main(int argc, char* argv[])
                     int master_rank = UINT32_MAX;
                     int sub_rank=UINT32_MAX;
                     // MPI_Barrier(active_com);
-                    // create a communication group 
+                    // create a communication group
                     MPI_Comm sub_comm;
                     MPI_Comm_split(active_com, membership, rank, &sub_comm);
                     if(membership == 1)
@@ -170,10 +170,10 @@ int main(int argc, char* argv[])
                     // MPI_Barrier(active_com);
                     // MPI_Comm_free(&sub_comm);
                 }
-            
+
 #endif
         }
-#if broadcast
+#ifdef broadcast
             MPI_Allgather(
                         MPI_IN_PLACE, // "in-place" send buffer
                         0,            // ignored
@@ -210,7 +210,7 @@ int main(int argc, char* argv[])
         printf("\n");
         // --------------------------------------------
 #endif // DEBUG
-        
+
         // 5) Use an all-reduce to see if any rank has a collision
         MPI_Allreduce(
             &p_vertex_count,    // send buffer
