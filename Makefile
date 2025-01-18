@@ -26,7 +26,7 @@ all: release
 debug: CXXFLAGS += -O0 -g -DDEBUG
 debug: executable
 
-broadcast: CXXFLAGS += -O0 -g -Dbroadcast
+broadcast: CXXFLAGS += -O3 -Dbroadcast
 broadcast: executable
 
 release: CXXFLAGS += -O3
