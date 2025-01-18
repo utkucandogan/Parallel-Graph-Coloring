@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <algorithm>
 #include <random>
@@ -10,8 +11,8 @@
 using namespace std;
 
 //Colors the specified number of vertices using a dynamic array
-void color_vertices_dyanmic(uint32_t* p_adjacency_array, uint32_t* color_array, uint32_t* forbidden_colors, uint32_t* p_collision_array,
-    uint32_t p_vertex_start_index, uint32_t vertex_count, uint32_t max_degree) {
+void color_vertices_dyanmic(uint32_t* p_adjacency_array, uint32_t* color_array,uint32_t* process_array, uint32_t* forbidden_colors, uint32_t* p_collision_array,
+    uint32_t p_vertex_start_index, uint32_t vertex_count,uint32_t constant_vertex_count, uint32_t max_degree) {
 
     uint32_t neighbour;
     uint32_t neighbour_offset = 0;
@@ -27,10 +28,14 @@ void color_vertices_dyanmic(uint32_t* p_adjacency_array, uint32_t* color_array, 
             neighbour = p_adjacency_array[neighbour_offset + neighbour_index];
             if (neighbour == UINT32_MAX)
                 break;
-            else
+            else{
+                uint32_t write_index = neighbour/(constant_vertex_count);
+                //printf("neighbor := %d write_index %d\n",neighbour,write_index);
+                process_array[write_index] = 1;
                 //Color_array is zero-indexed, forbidden colors are one-indexed
                 // Use vertex + 1 for forbidding since 0 is used for uncolored at the beginining
                 forbidden_colors[color_array[neighbour]] = vertex + 1;
+            }
         }
         //Select min unforbid color for the current vertex
         for (uint32_t color = 1; color <= max_degree + 1; ++color) {
@@ -44,7 +49,7 @@ void color_vertices_dyanmic(uint32_t* p_adjacency_array, uint32_t* color_array, 
 
 
 //Colors the specified number of vertices using a dynamic array
-bool check_collisions(uint32_t* p_adjacency_array, uint32_t* color_array, uint32_t*& p_collision_array,
+bool check_collisions(uint32_t* p_adjacency_array, uint32_t* color_array, uint32_t* operating_processes_array,uint32_t*& p_collision_array,uint32_t rank,
     uint32_t p_vertex_start_index, uint32_t &p_vertex_count, uint32_t max_degree) {
     uint32_t neighbour;
     uint32_t* p_new_collision_array = (uint32_t*)malloc(p_vertex_count * sizeof(uint32_t));
@@ -82,6 +87,8 @@ bool check_collisions(uint32_t* p_adjacency_array, uint32_t* color_array, uint32
     if(p_new_vertex_count<p_vertex_count)
         p_new_collision_array[p_new_vertex_count] = UINT32_MAX;
     p_vertex_count = p_new_vertex_count;
+    if(p_new_vertex_count == 0)
+        operating_processes_array[rank] = 0;
     free(p_collision_array);
     p_collision_array = p_new_collision_array;
     return true;
@@ -93,6 +100,9 @@ bool allocate_and_initialize(
     uint32_t** p_collision_array,
     uint32_t** p_adjacency_array,
     uint32_t** color_array,
+    uint32_t** process_array,
+    uint32_t** operating_processes_array,
+    size_t     size,
     size_t     max_degree,
     size_t     p_vertex_count,
     size_t     vertex_count
@@ -135,6 +145,8 @@ bool allocate_and_initialize(
 
     // 4) Allocate color array
     *color_array = (uint32_t*)malloc(vertex_count * sizeof(uint32_t));
+    *process_array = (uint32_t*)malloc(size * sizeof(uint32_t));
+    *operating_processes_array = (uint32_t*)malloc(size * sizeof(uint32_t));
     if (!*color_array) {
         fprintf(stderr, "Error: Could not allocate color_array.\n");
         // Free already allocated arrays
@@ -143,9 +155,33 @@ bool allocate_and_initialize(
         free(*p_adjacency_array);    *p_adjacency_array = NULL;
         return false;
     }
+    if (!*process_array) {
+        fprintf(stderr, "Error: Could not allocate process_array.\n");
+        // Free already allocated arrays
+        free(*color_array);          *color_array = NULL;
+        free(*p_forbidden_colors);   *p_forbidden_colors = NULL;
+        free(*p_collision_array);    *p_collision_array = NULL;
+        free(*p_adjacency_array);    *p_adjacency_array = NULL;
+        return false;
+    }
+
+    if (!*operating_processes_array) {
+        fprintf(stderr, "Error: Could not allocate process_array.\n");
+        // Free already allocated arrays
+        free(*color_array);          *color_array = NULL;
+        free(*p_forbidden_colors);   *p_forbidden_colors = NULL;
+        free(*p_collision_array);    *p_collision_array = NULL;
+        free(*p_adjacency_array);    *p_adjacency_array = NULL;
+        free(*operating_processes_array);    *operating_processes_array = NULL;
+        return false;
+    }
     // Initialize color array to 0
     for (size_t i = 0; i < vertex_count; i++) {
         (*color_array)[i] = 0;
+    }
+    for (size_t i = 0; i < size; i++) {
+        (*process_array)[i] = 0;
+        (*operating_processes_array)[i] = 1;
     }
 
     return true;  // Allocation and initialization succeeded
@@ -231,4 +267,40 @@ void print_adjency_array(uint32_t* matrix, uint32_t vertex_count, uint32_t max_d
         }
         printf("\n");
     }
+}
+// Read input file
+// file is designed such that first read data is vertex count
+// second is matrix depth, the rest are vertex_count*matrix_depth number of adjaency data
+uint32_t* read_input(const char* filename,uint32_t* vertex_count,uint32_t* max_degree)
+{
+    uint32_t* matrix = NULL;
+    std::ifstream f(filename, std::ios::binary);
+    if (!f.is_open()) {
+        throw std::runtime_error("Couldn\'t open the file!");
+    }
+
+    // Read the number of vertices and max array size
+
+
+    f.read(reinterpret_cast<char*>(vertex_count), sizeof(uint32_t));
+    f.read(reinterpret_cast<char*>(max_degree), sizeof(uint32_t));
+    uint32_t total_size=(*vertex_count)*(*max_degree);
+    matrix = (uint32_t*)malloc(total_size * sizeof(uint32_t));
+    printf("matrix size :%d max_degree:%d\n",*vertex_count,*max_degree);
+    uint32_t data;
+    uint32_t col_counter = 0;
+    uint32_t row = 0, old_row = 0;
+    uint32_t col = 0;
+
+    uint32_t location_counter = 0;
+    while (f.read(reinterpret_cast<char*>(&data), sizeof(uint32_t))) {
+        old_row = row;
+        matrix[location_counter] = data;
+        if(location_counter == (total_size-1))
+            break;
+        location_counter += 1;
+    }
+
+    f.close();
+    return matrix;
 }
