@@ -1,45 +1,6 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include "methods.h"
+#include "scheduler.h"
 
-METHOD_INITIALIZE(scheduler)
-{
-    if (!process_array || !operating_processes_array) {
-        perror("All inputs must be non-NULL");
-        return false;  // Nothing else to free yet
-    }
-    ref(process_array) = (uint32_t*) malloc(size * sizeof(uint32_t));
-    if (!ref(process_array)) {
-        fprintf(stderr, "Error: Could not allocate process_array.\n");
-        return false;
-    }
-
-    ref(operating_processes_array) = (uint32_t*) malloc(size * sizeof(uint32_t));
-    if (!ref(operating_processes_array)) {
-        fprintf(stderr, "Error: Could not allocate process_array.\n");
-        // Free already allocated arrays
-        free(ref(process_array));
-        ref(process_array) = NULL;
-        return false;
-    }
-
-    for (size_t i = 0 ; i < size ; i++) {
-        ref(process_array)[i] = 0;
-        ref(operating_processes_array)[i] = 1;
-    }
-
-    return true;
-}
-
-METHOD_FINALIZE(scheduler)
-{
-    free(ref(process_array));
-    ref(process_array) = NULL;
-    free(ref(operating_processes_array));
-    ref(operating_processes_array) = NULL;
-}
-
-METHOD_PRECOLOR(scheduler)
+MPI_Comm scheduler_get_active_comm(int rank, int size, uint32_t* operating_processes_array)
 {
     // MPI_Barrier(MPI_COMM_WORLD);
     MPI_Allgather(
@@ -54,8 +15,8 @@ METHOD_PRECOLOR(scheduler)
 
 
     int active_process = operating_processes_array[rank] == 1 ? 1 :MPI_UNDEFINED;
-    MPI_Comm active_com;
-    MPI_Comm_split(MPI_COMM_WORLD, active_process, rank, &active_com);
+    MPI_Comm active_comm;
+    MPI_Comm_split(MPI_COMM_WORLD, active_process, rank, &active_comm);
 
 
     int active_rank = 0;
@@ -66,10 +27,18 @@ METHOD_PRECOLOR(scheduler)
         }
     }
 
-    return active_com;
+    return active_comm;
 }
 
-METHOD_POSTCOLOR(scheduler)
+void scheduler_broadcast(
+    int rank,
+    int size,
+    uint32_t* process_array,
+    uint32_t* operating_processes_array,
+    MPI_Comm active_com,
+    uint32_t p_vertex_count_init,
+    uint32_t* color_array
+)
 {
     int rank_counter = 0;
     // Every active process will send its part of the color array to the needing processes
@@ -77,7 +46,7 @@ METHOD_POSTCOLOR(scheduler)
         if(operating_processes_array[i] == 0){
             continue;
         }
-        int membership = ((process_array[i]==1) || rank == i )? 1 : MPI_UNDEFINED;
+        int membership = ((process_array[i] == 1) || rank == i ) ? 1 : MPI_UNDEFINED;
         int master_rank = UINT32_MAX;
         int sub_rank = UINT32_MAX;
         // MPI_Barrier(active_com);

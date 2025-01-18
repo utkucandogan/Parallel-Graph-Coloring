@@ -4,8 +4,8 @@
 #include <mpi.h>
 
 #include "adjacency.h"
-#include "helper.h"
-#include "methods/methods.h"
+#include "color.h"
+#include "scheduler.h"
 
 // Variable starting with p are process specific variables
 int main(int argc, char* argv[])
@@ -42,12 +42,12 @@ int main(int argc, char* argv[])
     uint32_t* operating_processes_array = NULL;
     uint32_t* process_array = NULL; // holds which process needs which data
 
-    METHOD_FUNCTIONS_DEFINE();
+    bool use_scheduler = false;
     // Select method
     if (strcmp(argv[1], "broadcaster") == 0) {
-        METHOD_FUNCTIONS_ASSIGN(broadcaster);
+        use_scheduler = false;
     } else if (strcmp(argv[1], "scheduler") == 0) {
-        METHOD_FUNCTIONS_ASSIGN(scheduler);
+        use_scheduler = true;
     } else {
         fprintf(stderr, "Selected method is not valid!\n");
         MPI_Finalize();
@@ -76,12 +76,13 @@ int main(int argc, char* argv[])
             &p_collision_array,
             &p_adjacency_array,
             &color_array,
+            &process_array,
+            &operating_processes_array,
             size,
             max_degree,
             p_vertex_count,
             vertex_count
-        ) || !method_initialize(&process_array, &operating_processes_array, size)
-    ) {
+    )) {
         fprintf(stderr, "Failed to allocate resources.\n");
         MPI_Finalize();
         return EXIT_FAILURE;
@@ -116,7 +117,7 @@ int main(int argc, char* argv[])
     MPI_Barrier(MPI_COMM_WORLD);
     double start_time = MPI_Wtime();
 
-#if DEBUG
+#ifdef DEBUG
     // Print out what each rank received
     printf("Rank %d received: ", rank);
     for (int i = 0; i < p_vertex_count * max_degree; i++) {
@@ -125,27 +126,27 @@ int main(int argc, char* argv[])
     printf("\n");
 #endif // DEBUG,
 
-    MPI_Barrier(MPI_COMM_WORLD);
     uint32_t global_collision_flag = 1;
     uint32_t itertion_count = 0;
     while (global_collision_flag) {
-        MPI_Comm active_comm = method_precolor(rank, size, operating_processes_array);
+        MPI_Comm active_comm = use_scheduler ? scheduler_get_active_comm(rank, size, operating_processes_array) : 0;
 
-        if(p_vertex_count) color_vertices_dynamic(
-            p_adjacency_array,
-            color_array,
-            process_array,
-            p_forbidden_colors,
-            p_collision_array,
-            p_vertex_start_index,
-            p_vertex_count,
-            p_vertex_count_init,
-            max_degree
-        );
+        if(p_vertex_count) {
+            color_vertices_dynamic(
+                p_adjacency_array,
+                color_array,
+                process_array,
+                p_forbidden_colors,
+                p_collision_array,
+                p_vertex_start_index,
+                p_vertex_count,
+                p_vertex_count_init,
+                max_degree
+            );
+            if (use_scheduler) scheduler_broadcast(rank, size, process_array, operating_processes_array, active_comm, p_vertex_count_init, color_array);
+        }
 
-        method_postcolor(rank, size, process_array, operating_processes_array, active_comm, p_vertex_count_init, color_array);
-
-#if DEBUG
+#ifdef DEBUG
         // Print out the final color array on each rank
         printf("Rank %d, color_array: ", rank);
         for (size_t i = 0; i < vertex_count; i++) {
@@ -154,7 +155,19 @@ int main(int argc, char* argv[])
         printf("\n");
 #endif // DEBUG
 
-        if(p_vertex_count && !check_collisions(
+        if (!use_scheduler) {
+            MPI_Allgather(
+                MPI_IN_PLACE,        // "in-place" send buffer
+                0,                   // ignored
+                MPI_DATATYPE_NULL,   // ignored
+                color_array,         // receive buffer (must have N=local_vertex_count*size capacity)
+                p_vertex_count_init, // how many elements each rank contributes
+                MPI_UINT32_T,
+                MPI_COMM_WORLD
+            );
+        }
+
+        if (p_vertex_count && !check_collisions(
             &p_collision_array,
             &p_vertex_count,
             p_adjacency_array,
@@ -168,7 +181,7 @@ int main(int argc, char* argv[])
             goto EXIT;
         }
 
-#if DEBUG
+#ifdef DEBUG
         // Print out the final color array on each rank
         printf("Rank %d, collision count: %d, iteration: %d ", rank, p_vertex_count,itertion_count);
         for (size_t i = 0; i < p_vertex_count; i++) {
@@ -199,7 +212,8 @@ EXIT:
     free(p_collision_array);
     free(p_adjacency_array);
     free(color_array);
-    method_finalize(&process_array, &operating_processes_array);
+    free(process_array);
+    free(operating_processes_array);
 
     double end_time = MPI_Wtime();
     double max_time;

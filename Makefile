@@ -5,10 +5,12 @@ MODE    ?= parallel
 
 ifeq ($(OS), Windows_NT)
 	OUT_EXT ?= exe
-	CCFLAGS += -I"C:\Program Files (x86)\Microsoft SDKs\MPI\Include" -L"C:\Program Files (x86)\Microsoft SDKs\MPI\Lib\x64" -lmsmpi
+	CCFLAGS += -I"C:/Program Files (x86)/Microsoft SDKs/MPI/Include"
+	LDFLAGS := C:/Windows/System32/msmpi.dll
 	CC      := gcc
 else
 	OUT_EXT ?= elf
+	LDFLAGS :=
 	CC      := mpicc
 endif
 
@@ -58,7 +60,7 @@ release: executable
 executable: $(OUT_EXE)
 
 $(OUT_EXE): $(OBJS_COMM) $(OBJS_CODE)
-	$(CC) $(CCFLAGS) $^ -o $@
+	$(CC) $(CCFLAGS) $(LDFLAGS) $^ -o $@
 
 
 $(OBJ_DIR_COMM)/%.o: $(SRC_DIR_COMM)/%.c
