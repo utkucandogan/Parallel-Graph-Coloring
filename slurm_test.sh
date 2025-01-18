@@ -27,4 +27,4 @@
 #SBATCH --mail-user=<user_name>@ceng.metu.edu.tr
 
 # Launch the command/application
-mpirun ./pgc.exe
+mpirun -np 8 ./pgc.elf data/matrix_99192x205.bin
