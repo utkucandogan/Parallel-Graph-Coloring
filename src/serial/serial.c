@@ -49,6 +49,13 @@ bool serial_color(uint32_t vertex_count, uint32_t max_degree, uint32_t* adjacenc
         free(forbidden_colors);   forbidden_colors = NULL;
         return false;
     }
+
+    // Initialize the color array with zeros
+    for (size_t i = 0 ; i < vertex_count ; ++i) {
+        color_array[i] = 0;
+    }
+
+
     color_vertices_static(
         adjacency_array,
         color_array,
