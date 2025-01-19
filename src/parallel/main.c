@@ -135,9 +135,9 @@ int main(int argc, char* argv[])
             color_vertices_dynamic(
                 p_adjacency_array,
                 color_array,
-                process_array,
                 p_forbidden_colors,
                 p_collision_array,
+                process_array,
                 p_vertex_start_index,
                 p_vertex_count,
                 p_vertex_count_init,
