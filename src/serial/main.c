@@ -48,8 +48,7 @@ int main(int argc, char* argv[])
             return 1;
         }
         // Calculate elapsed time in miliseconds
-        elapsed_time = (end.tv_sec - start.tv_sec) +
-                (end.tv_nsec - start.tv_nsec) / 1e6;
+        elapsed_time = (end.tv_sec - start.tv_sec) * 1e3 + (end.tv_nsec - start.tv_nsec) / 1e6;
 
         measurement_array[measurement]= elapsed_time/ test_iterations;
     }
@@ -81,7 +80,7 @@ int main(int argc, char* argv[])
             return EXIT_FAILURE;
         }
         // Inform the user that the operation was successful
-        printf("Array successfully written to %s with maximum precision.\n", filename);    
+        printf("Array successfully written to %s with maximum precision.\n", filename);
 
     return EXIT_SUCCESS;
 }
