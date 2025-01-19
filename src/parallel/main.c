@@ -6,8 +6,8 @@
 #include "adjacency.h"
 #include "parallel.h"
 
-#define TEST_ITERATION_COUNT 1000
-#define TEST_MEASUREMENTS_COUNT 1000
+#define TEST_ITERATION_COUNT 1
+#define TEST_MEASUREMENTS_COUNT 1
 
 // Variable starting with p are process specific variables
 int main(int argc, char* argv[])
@@ -77,7 +77,7 @@ int main(int argc, char* argv[])
         // 1. Create a dynamic filename based on the array size
         // Assuming the array size won't exceed 100 digits for this example
         char filename[50];
-        snprintf(filename, sizeof(filename), "V_%d_MD_%d_S_%d.txt", vertex_count,max_degree,size);
+        snprintf(filename, sizeof(filename), "%s_M_%dx%d_S_%d.txt", argv[1],vertex_count,max_degree,size);
 
         // 2. Open the dynamically named file for writing
         FILE *file = fopen(filename, "w");
